@@ -1,136 +1,111 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const scale = 20;
-const rows = canvas.height / scale;
-const columns = canvas.width / scale;
+const trex = {
+    x: 50,
+    y: canvas.height - 50,
+    width: 50,
+    height: 50,
+    dy: 0,
+    gravity: 0.5,
+    jumpPower: -10,
+    isJumping: false,
+};
 
-let snake, fruit;
+const obstacles = [];
+let frame = 0;
+let gameOver = false;
 
-(function setup() {
-    snake = new Snake();
-    fruit = new Fruit();
-    fruit.pickLocation();
+function drawTrex() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(trex.x, trex.y, trex.width, trex.height);
+}
 
-    window.setInterval(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        fruit.draw();
-        snake.update();
-        snake.draw();
+function createObstacle() {
+    const obstacle = {
+        x: canvas.width,
+        y: canvas.height - 50,
+        width: 20,
+        height: 50,
+    };
+    obstacles.push(obstacle);
+}
 
-        if (snake.eat(fruit)) {
-            fruit.pickLocation();
-        }
+function drawObstacles() {
+    ctx.fillStyle = '#000';
+    obstacles.forEach(obstacle => {
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    });
+}
 
-        snake.checkCollision();
-    }, 250);
-}());
+function updateObstacles() {
+    obstacles.forEach(obstacle => {
+        obstacle.x -= 5;
+    });
 
-window.addEventListener('keydown', ((evt) => {
-    const direction = evt.key.replace('Arrow', '');
-    snake.changeDirection(direction);
-}));
-
-function Snake() {
-    this.x = 0;
-    this.y = 0;
-    this.xSpeed = scale * 1;
-    this.ySpeed = 0;
-    this.total = 0;
-    this.tail = [];
-
-    this.draw = function() {
-        ctx.fillStyle = "#000000";
-        for (let i = 0; i < this.tail.length; i++) {
-            ctx.fillRect(this.tail[i].x, this.tail[i].y, scale, scale);
-        }
-
-        ctx.fillRect(this.x, this.y, scale, scale);
-    }
-
-    this.update = function() {
-        for (let i = 0; i < this.tail.length - 1; i++) {
-            this.tail[i] = this.tail[i + 1];
-        }
-
-        if (this.total > 0) {
-            this.tail[this.total - 1] = { x: this.x, y: this.y };
-        }
-
-        this.x += this.xSpeed;
-        this.y += this.ySpeed;
-
-        if (this.x >= canvas.width) {
-            this.x = 0;
-        } else if (this.x < 0) {
-            this.x = canvas.width - scale;
-        }
-
-        if (this.y >= canvas.height) {
-            this.y = 0;
-        } else if (this.y < 0) {
-            this.y = canvas.height - scale;
-        }
-    }
-
-    this.changeDirection = function(direction) {
-        switch (direction) {
-            case 'Up':
-                if (this.ySpeed === 0) {
-                    this.xSpeed = 0;
-                    this.ySpeed = -scale * 1;
-                }
-                break;
-            case 'Down':
-                if (this.ySpeed === 0) {
-                    this.xSpeed = 0;
-                    this.ySpeed = scale * 1;
-                }
-                break;
-            case 'Left':
-                if (this.xSpeed === 0) {
-                    this.xSpeed = -scale * 1;
-                    this.ySpeed = 0;
-                }
-                break;
-            case 'Right':
-                if (this.xSpeed === 0) {
-                    this.xSpeed = scale * 1;
-                    this.ySpeed = 0;
-                }
-                break;
-        }
-    }
-
-    this.eat = function(fruit) {
-        if (this.x === fruit.x && this.y === fruit.y) {
-            this.total++;
-            return true;
-        }
-        return false;
-    }
-
-    this.checkCollision = function() {
-        for (let i = 0; i < this.tail.length; i++) {
-            if (this.x === this.tail[i].x && this.y === this.tail[i].y) {
-                this.total = 0;
-                this.tail = [];
-            }
-        }
+    if (obstacles.length && obstacles[0].x + obstacles[0].width < 0) {
+        obstacles.shift();
     }
 }
 
-function Fruit() {
-    this.x;
-    this.y;
+function checkCollision() {
+    obstacles.forEach(obstacle => {
+        if (trex.x < obstacle.x + obstacle.width &&
+            trex.x + trex.width > obstacle.x &&
+            trex.y < obstacle.y + obstacle.height &&
+            trex.y + trex.height > obstacle.y) {
+            gameOver = true;
+        }
+    });
+}
 
-    this.pickLocation = function() {
-        this.x = Math.floor(Math.random() * columns) * scale;
-        this.y = Math.floor(Math.random() * rows) * scale;
-    }
-
-    this.draw = function() {
-        ctx.fillStyle = "#FF0000";
-        ctx.fillRect(this.x, this.y, scale, scale);
+function updateTrex() {
+    trex.y += trex.dy;
+    if (trex.y + trex.height < canvas.height) {
+        trex.dy += trex.gravity;
+    } else {
+        trex.y = canvas.height - trex.height;
+        trex.dy = 0;
+        trex.isJumping = false;
     }
 }
+
+function handleJump() {
+    if (trex.isJumping) return;
+    trex.dy = trex.jumpPower;
+    trex.isJumping = true;
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        handleJump();
+    }
+});
+
+function gameLoop() {
+    if (gameOver) {
+        ctx.font = '30px Arial';
+        ctx.fillStyle = 'red';
+        ctx.fillText('Game Over', canvas.width / 2 - 75, canvas.height / 2);
+        return;
+    }
+
+    frame++;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawTrex();
+    updateTrex();
+
+    if (frame % 100 === 0) {
+        createObstacle();
+    }
+
+    drawObstacles();
+    updateObstacles();
+    checkCollision();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
